@@ -1,7 +1,11 @@
 import express from 'express'
 import morgan from 'morgan'
+import { connectTelegram } from './config/telegram.js'
 
 const app = express()
+
+// called telegram to connect 
+// connectTelegram()
 
 
 // middleware 
