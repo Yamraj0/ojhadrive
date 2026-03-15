@@ -19,10 +19,13 @@
   },
   "homepage": "https://github.com/Yamraj0/ojhadrive#readme",
   "dependencies": {
+    "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
+    "exiftool-vendored": "^35.13.1",
     "express": "^5.2.1",
+    "form-data": "^4.0.5",
     "fs": "^0.0.1-security",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.3.0",

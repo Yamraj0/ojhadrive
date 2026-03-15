@@ -1,0 +1,18 @@
+{"level":"info","ts":"2026-03-15T13:37:28.259Z","logger":"Config","msg":"Trying to load ENV vars from fsb.env"}
+{"level":"info","ts":"2026-03-15T13:37:28.261Z","logger":"Config","msg":"HOST not set, automatically set to http://10.0.0.195:8080"}
+{"level":"info","ts":"2026-03-15T13:37:28.261Z","logger":"Config","msg":"Loaded config"}
+{"level":"info","ts":"2026-03-15T13:37:28.261Z","logger":"Main","msg":"Starting server"}
+{"level":"info","ts":"2026-03-15T13:37:28.261Z","logger":"routes.Stream","msg":"Loaded stream route"}
+{"level":"info","ts":"2026-03-15T13:37:28.261Z","logger":"routes","msg":"Loaded all API Routes"}
+{"level":"info","ts":"2026-03-15T13:37:34.186Z","logger":"commands.start","msg":"Loaded"}
+{"level":"info","ts":"2026-03-15T13:37:34.186Z","logger":"commands.start","msg":"Loaded"}
+{"level":"info","ts":"2026-03-15T13:37:34.186Z","logger":"commands","msg":"Initialized all command handlers"}
+{"level":"info","ts":"2026-03-15T13:37:34.187Z","msg":"Client started","username":"Ojhadrivebot"}
+{"level":"info","ts":"2026-03-15T13:37:34.191Z","logger":"cache","msg":"Initialized"}
+{"level":"info","ts":"2026-03-15T13:37:34.192Z","logger":"Workers","msg":"No worker bot tokens provided, skipping worker initialization"}
+{"level":"info","ts":"2026-03-15T13:37:34.192Z","logger":"Workers","msg":"Default bot loaded"}
+{"level":"warn","ts":"2026-03-15T13:37:34.192Z","logger":"USERBOT","msg":"User session is empty"}
+{"level":"info","ts":"2026-03-15T13:37:34.192Z","logger":"Main","msg":"Server started","port":8080}
+{"level":"info","ts":"2026-03-15T13:37:34.192Z","logger":"Main","msg":"File Stream Bot","version":"3.2.0"}
+{"level":"info","ts":"2026-03-15T13:37:34.192Z","logger":"Main","msg":"Server is running at http://10.0.0.195:8080"}
+{"level":"error","ts":"2026-03-15T13:38:59.334Z","msg":"external link endpoint returned non-2xx status: 401 Unauthorized"}

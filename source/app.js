@@ -1,11 +1,14 @@
 import express from 'express'
 import morgan from 'morgan'
 import { connectTelegram } from './config/telegram.js'
+import photoRoutes from './routes/photoRoutes.js'
+import videoRoutes from './routes/videoRoutes.js'
+import filesRoutes from './routes/filesRoutes.js'
 
 const app = express()
 
 // called telegram to connect 
-// connectTelegram()
+connectTelegram()
 
 
 // middleware 
@@ -32,6 +35,14 @@ app.use(
     skip: (req) => !['GET', 'POST'].includes(req.method),
   })
 );
+
+
+
+// Routes config
+
+app.use('/api/photo',photoRoutes)
+app.use('/api/video',videoRoutes)
+app.use('/api/files',filesRoutes)
 
 app.get('/health',(req,res) => {
     res.send('all good')
