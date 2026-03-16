@@ -2,7 +2,6 @@ import express from 'express'
 import morgan from 'morgan'
 import { connectTelegram } from './config/telegram.js'
 import photoRoutes from './routes/photoRoutes.js'
-import videoRoutes from './routes/videoRoutes.js'
 import filesRoutes from './routes/filesRoutes.js'
 
 const app = express()
@@ -41,7 +40,6 @@ app.use(
 // Routes config
 
 app.use('/api/photo',photoRoutes)
-app.use('/api/video',videoRoutes)
 app.use('/api/files',filesRoutes)
 
 app.get('/health',(req,res) => {

@@ -11,6 +11,7 @@ const photoSchema = new mongoose.Schema({
     photoDevice: {
         type: String,
     },
+    photoMime: String,
     photoModel: String,
     photoSoftware: String,
     photoExposureTime: String,
@@ -29,6 +30,11 @@ const photoSchema = new mongoose.Schema({
         minute : String,
         second : String
     },
+    photoId: String,
+    photoMId: String,
+    photoHash: String,
+    photoStream: String,
+    photoDownload: String,
 },{timestamps: true})
 
 export default mongoose.model("Photo", photoSchema)

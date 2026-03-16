@@ -8,7 +8,7 @@ const photoRoutes = express.Router()
 // photoRoutes.get('/')
 
 // for uploads photos / single photos
-photoRoutes.post('/upload',uploadMulter.array('photo',50),uploadPhoto)
+photoRoutes.post('/upload',uploadMulter.array('photo',100),uploadPhoto)
 
 // for getting single photos
 // photoRoutes.get('/:id')

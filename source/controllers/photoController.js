@@ -1,7 +1,8 @@
 import { exiftool } from "exiftool-vendored";
 import photoModel from "../models/photoModel.js";
-const channelId = -1003702275192 ;
 import { client } from "../config/telegram.js";
+
+const channelId = -1003702275192;
 
 export const uploadPhoto = async (req, res) => {
   try {
@@ -15,8 +16,28 @@ export const uploadPhoto = async (req, res) => {
         mimeType: photo.mimetype,
         forceDocument: false,
       });
+
+      console.log(JSON.stringify(tags));
       console.log("telegram upload result:", JSON.stringify(photo));
-      console.log("telegram upload result:", JSON.stringify(result));
+      let id = "";
+      if (
+        result &&
+        result.media &&
+        result.media.document &&
+        result.media.document.id
+      ) {
+        id = result.media.document.id.value.toString()
+      }
+
+      if (
+        result &&
+        result.media &&
+        result.media.photo &&
+        result.media.photo.id
+      ) {
+        id = result.media.photo.id.value.toString()
+      }
+
       const dateTag =
         tags.DateTimeOriginal || tags.CreateDate || tags.ModifyDate;
       let photoDate = {
@@ -50,6 +71,7 @@ export const uploadPhoto = async (req, res) => {
 
       const photoData = await photoModel.create({
         id: result.id,
+        photoId: id,
         photoName: photo.originalname,
         photoDevice: tags.Make || "",
         photoModel: tags.Model || "",
@@ -70,10 +92,12 @@ export const uploadPhoto = async (req, res) => {
       .status(200)
       .json({ message: "Photos uploaded successfully", data: uploadPhotos });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     res.status(500).json({
       message: "INTERNAL SERVER ERROR WHILE UPLOADS THE PHOTOES",
       error: JSON.stringify(error),
     });
   }
 };
+
+
