@@ -1,14 +1,9 @@
 import express from 'express'
 import morgan from 'morgan'
-import { connectTelegram } from './config/telegram.js'
 import photoRoutes from './routes/photoRoutes.js'
 import filesRoutes from './routes/filesRoutes.js'
 
 const app = express()
-
-// called telegram to connect 
-connectTelegram()
-
 
 // middleware 
 app.use(express.json())
