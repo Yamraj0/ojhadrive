@@ -1,5 +1,6 @@
 import express from "express";
 import photoModel from "../models/photoModel.js";
+import { imageMimeTypes,videoMimeTypes,fileMimeTypes,audioMimeTypes } from "../data/mimeTypes.js";
 
 const filesRoutes = express.Router();
 
@@ -8,6 +9,7 @@ filesRoutes.post("/uploaded", async (req, res) => {
   console.log(data);
   try {
     const mime = data.mime_type;
+
 
     if (mime == "image/jpeg") {
       const fileId = JSON.stringify(data.file_name).match(/\d+/)[0];
@@ -33,7 +35,7 @@ filesRoutes.post("/uploaded", async (req, res) => {
       const photo = await isPhoto.save();
       console.log(photo);
       console.log("success");
-    } else if (mime == "image/heic") {
+    } else{
       const fileName = data.file_name;
       console.log(fileName);
 
@@ -57,56 +59,7 @@ filesRoutes.post("/uploaded", async (req, res) => {
       const photo = await isPhoto.save();
       console.log(photo);
       console.log("success");
-    } else if (mime == "image/webp") {
-      const fileName = data.file_name;
-      console.log(fileName);
-
-      if (!fileName) {
-        console.log("File Id is Not found");
-      }
-
-      const isPhoto = await photoModel.findOne({ photoName: fileName });
-      console.log(isPhoto);
-
-      if (!isPhoto) {
-        console.log("No photo Found by id");
-      }
-
-      isPhoto.photoMId = data.message_id;
-      isPhoto.photoMime = data.mime_type;
-      isPhoto.photoHash = data.hash;
-      isPhoto.photoStream = data.stream_url;
-      isPhoto.photoDownload = data.download_url;
-
-      const photo = await isPhoto.save();
-      console.log(photo);
-      console.log("success");
-    } else if (mime == "video/mp4") {
-      const fileName = data.file_name;
-      console.log(fileName);
-
-      if (!fileName) {
-        console.log("File Id is Not found");
-      }
-
-      const isPhoto = await photoModel.findOne({ photoName: fileName });
-      console.log(isPhoto);
-
-      if (!isPhoto) {
-        console.log("No photo Found by id");
-      }
-
-      isPhoto.photoMId = data.message_id;
-      isPhoto.photoMime = data.mime_type;
-      isPhoto.photoHash = data.hash;
-      isPhoto.photoStream = data.stream_url;
-      isPhoto.photoDownload = data.download_url;
-
-      const photo = await isPhoto.save();
-      console.log(photo);
-      console.log("success");
-    } else {
-    }
+    } 
 
     res.status(200).json({
       message: "OK",
