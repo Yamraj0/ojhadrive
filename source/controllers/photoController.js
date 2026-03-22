@@ -137,7 +137,7 @@ export const getAllPhotos = async (req, res) => {
 export const getPhotoById = async (req, res) => {
   const { id } = req.params;
   try {
-    const photo = await photoModel.findOne({ photoId: id });
+    const photo = await photoModel.findOne({ id: id });
     if (!photo) {
       return res.status(404).json({ message: "Photo not found" });
     }
