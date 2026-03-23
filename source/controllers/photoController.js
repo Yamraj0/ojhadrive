@@ -24,11 +24,7 @@ async function mapLimit(items, limit, worker) {
 
 async function processSinglePhoto(photo) {
   const tags = await exiftool.read(photo.path);
-  const uniqueid = "yamraj"
-
-  await exiftool.write(photo.path, {
-    "XMP:UniqueId": uniqueid,
-  });
+ 
   const result = await client.sendFile(channelId, {
     file: photo.path,
     fileName: photo.originalname,
