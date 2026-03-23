@@ -30,6 +30,7 @@ async function processSinglePhoto(photo) {
     fileName: photo.originalname,
     mimeType: photo.mimetype,
     forceDocument: true,
+    caption: `ref=${photo.originalname}`,
   });
 
   // Prefer document id when available; fallback to photo id.
@@ -75,7 +76,6 @@ async function processSinglePhoto(photo) {
 
   const photoData = await photoModel.create({
     id: result.id,
-    photoUniqueID: uniqueid,
     photoId: id,
     photoName: photo.originalname,
     photoDevice: tags.Make || "",
