@@ -4,6 +4,7 @@ const photoSchema = new mongoose.Schema({
     id: {
         type: String
     },
+    photoUniqueID: String,
     photoName: {
         type: String,
         required: true

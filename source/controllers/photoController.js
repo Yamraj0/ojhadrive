@@ -24,6 +24,11 @@ async function mapLimit(items, limit, worker) {
 
 async function processSinglePhoto(photo) {
   const tags = await exiftool.read(photo.path);
+  const uniqueid = "yamraj"
+
+  await exiftool.write(photo.path, {
+    "XMP:UniqueId": uniqueid,
+  });
   const result = await client.sendFile(channelId, {
     file: photo.path,
     fileName: photo.originalname,
@@ -74,6 +79,7 @@ async function processSinglePhoto(photo) {
 
   const photoData = await photoModel.create({
     id: result.id,
+    photoUniqueID: uniqueid,
     photoId: id,
     photoName: photo.originalname,
     photoDevice: tags.Make || "",
@@ -88,7 +94,7 @@ async function processSinglePhoto(photo) {
     photoMegapixels: tags.Megapixels || "",
     photoSize: tags.FileSize || "",
     photoDate,
-  });
+  });  
 
   // Free disk space: multer saved to disk; once processed, delete it.
   await fs.unlink(photo.path).catch(() => {});
