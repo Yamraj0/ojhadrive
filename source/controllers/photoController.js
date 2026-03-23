@@ -33,7 +33,7 @@ async function processSinglePhoto(photo) {
     file: photo.path,
     fileName: photo.originalname,
     mimeType: photo.mimetype,
-    forceDocument: false,
+    forceDocument: true,
   });
 
   // Prefer document id when available; fallback to photo id.
