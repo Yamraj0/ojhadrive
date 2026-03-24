@@ -2,10 +2,38 @@ import { exiftool } from "exiftool-vendored";
 import photoModel from "../models/photoModel.js";
 import { client, ensureTelegramConnected } from "../config/telegram.js";
 import fs from "fs/promises";
+import os from "os";
 import { nanoid } from "nanoid";
 import { normalizeMediaForBrowser } from "../utils/mediaConverter.js";
 
 const channelId = -1003702275192;
+
+function getPositiveIntEnv(name, fallback) {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+const DEFAULT_UPLOAD_CONCURRENCY = Math.max(
+  2,
+  Math.min(
+    6,
+    Math.ceil((os.availableParallelism?.() || os.cpus().length || 2) / 2),
+  ),
+);
+
+const UPLOAD_CONCURRENCY = getPositiveIntEnv(
+  "UPLOAD_CONCURRENCY",
+  DEFAULT_UPLOAD_CONCURRENCY,
+);
 
 async function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -97,8 +125,10 @@ async function processSinglePhoto(photo) {
   const mediaType = photo.mimetype?.split("/")?.[0] || "";
 
   try {
-    const tags = await readMetadataSafely(photo, mediaType);
-    const normalized = await normalizeMediaForBrowser(photo);
+    const [tags, normalized] = await Promise.all([
+      readMetadataSafely(photo, mediaType),
+      normalizeMediaForBrowser(photo),
+    ]);
     cleanupPaths = normalized.cleanupPaths;
 
     const result = await sendFileWithRetry({
@@ -213,13 +243,11 @@ export const uploadPhoto = async (req, res) => {
     count: files.length,
   });
 
-  const CONCURRENCY = 2; // keep low to reduce CPU/network spikes + Telegram rate limiting
-
   void (async () => {
     try {
       const uploadPhotos = await mapLimit(
         files,
-        CONCURRENCY,
+        UPLOAD_CONCURRENCY,
         processSinglePhoto,
       );
       const successCount = uploadPhotos.filter(Boolean).length;

@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs/promises";
+import os from "os";
 import sharp from "sharp";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
@@ -21,6 +22,32 @@ const AUDIO_OUTPUT_MIME = "audio/mpeg";
 const IMAGE_EXT = ".jpg";
 const VIDEO_EXT = ".mp4";
 const AUDIO_EXT = ".mp3";
+
+function getPositiveIntEnv(name, fallback) {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+const IMAGE_JPEG_QUALITY = getPositiveIntEnv("IMAGE_JPEG_QUALITY", 84);
+const IMAGE_MAX_WIDTH = getPositiveIntEnv("IMAGE_MAX_WIDTH", 1920);
+const IMAGE_MAX_HEIGHT = getPositiveIntEnv("IMAGE_MAX_HEIGHT", 1920);
+const VIDEO_CRF = getPositiveIntEnv("VIDEO_CRF", 24);
+const VIDEO_MAX_WIDTH = getPositiveIntEnv("VIDEO_MAX_WIDTH", 1920);
+const VIDEO_MAX_HEIGHT = getPositiveIntEnv("VIDEO_MAX_HEIGHT", 1080);
+const VIDEO_PRESET = process.env.VIDEO_PRESET || "superfast";
+const FFMPEG_THREADS = Math.max(
+  1,
+  (os.availableParallelism?.() || os.cpus().length || 2) - 1,
+);
 
 const SUPPORTED_IMAGE_PASSTHROUGH = new Set([
   "image/jpeg",
@@ -87,16 +114,26 @@ async function convertImage(inputPath, inputMime) {
       const convertedBuffer = await heicConvert({
         buffer: inputBuffer,
         format: "JPEG",
-        quality: 1,
+        quality: 0.92,
       });
 
       await fs.writeFile(outputPath, Buffer.from(convertedBuffer));
     } else {
-      await sharp(inputPath)
+      await sharp(inputPath, { sequentialRead: true })
         .rotate()
+        .resize({
+          width: IMAGE_MAX_WIDTH,
+          height: IMAGE_MAX_HEIGHT,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
         .flatten({ background: "#ffffff" })
-        .jpeg({ quality: 96, mozjpeg: true, progressive: true, chromaSubsampling: "4:4:4" })
-        .withMetadata()
+        .jpeg({
+          quality: IMAGE_JPEG_QUALITY,
+          mozjpeg: true,
+          progressive: false,
+          chromaSubsampling: "4:2:0",
+        })
         .toFile(outputPath);
     }
   } catch (error) {
@@ -122,19 +159,34 @@ async function convertVideo(inputPath, inputMime) {
   const outputPath = getOutputPath(inputPath, "browser", VIDEO_EXT);
 
   try {
+    const outputOptions = [
+      "-c:v",
+      "libx264",
+      "-preset",
+      VIDEO_PRESET,
+      "-crf",
+      String(VIDEO_CRF),
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "128k",
+      "-movflags",
+      "+faststart",
+      "-map",
+      "0:v:0",
+      "-map",
+      "0:a?",
+      "-vf",
+      `scale=${VIDEO_MAX_WIDTH}:${VIDEO_MAX_HEIGHT}:force_original_aspect_ratio=decrease`,
+      "-threads",
+      String(FFMPEG_THREADS),
+    ];
+
     await runFfmpeg(inputPath, outputPath, (command) => {
       command
-        .outputOptions([
-          "-c:v libx264",
-          "-preset veryfast",
-          "-crf 22",
-          "-pix_fmt yuv420p",
-          "-c:a aac",
-          "-b:a 160k",
-          "-movflags +faststart",
-          "-map 0:v:0",
-          "-map 0:a?",
-        ])
+        .outputOptions(outputOptions)
         .format("mp4");
     });
   } catch (error) {
