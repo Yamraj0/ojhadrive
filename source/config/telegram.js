@@ -10,12 +10,71 @@ const client = new TelegramClient(
   new StringSession(session),
   apiId,
   apiHash,
-  { connectionRetries: 5 }
+  {
+    connectionRetries: Infinity,
+    autoReconnect: true,
+    useWSS: true,
+    requestRetries: 5,
+    timeout: 20,
+  }
 );
 
+let connectInFlight = null;
+
+function isTimeoutError(error) {
+  const message = error?.message || "";
+  return String(message).includes("TIMEOUT");
+}
+
+async function connectWithRetry(maxAttempts = 5) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await client.connect();
+      return;
+    } catch (error) {
+      lastError = error;
+      const waitMs = attempt * 1000;
+      console.error(
+        `Telegram connect failed (attempt ${attempt}/${maxAttempts}):`,
+        error?.message || error,
+      );
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+
+  throw lastError;
+}
+
+async function ensureTelegramConnected() {
+  if (client.connected) {
+    return;
+  }
+
+  if (!connectInFlight) {
+    connectInFlight = connectWithRetry().finally(() => {
+      connectInFlight = null;
+    });
+  }
+
+  await connectInFlight;
+}
+
 async function connectTelegram() {
-  await client.connect();
+  // GramJS update loop emits frequent TIMEOUT ping errors on cloud platforms.
+  // Keep real errors visible while silencing expected timeout noise.
+  client.setLogLevel("none");
+
+  client._errorHandler = async (error) => {
+    if (isTimeoutError(error)) {
+      return;
+    }
+    console.error("Telegram client error:", error?.message || error);
+  };
+
+  await ensureTelegramConnected();
   console.log("Telegram connected");
 }
 
-export { client, connectTelegram };
+export { client, connectTelegram, ensureTelegramConnected };

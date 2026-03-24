@@ -1,11 +1,72 @@
 import { exiftool } from "exiftool-vendored";
 import photoModel from "../models/photoModel.js";
-import { client } from "../config/telegram.js";
+import { client, ensureTelegramConnected } from "../config/telegram.js";
 import fs from "fs/promises";
 import { nanoid } from "nanoid";
 import { normalizeMediaForBrowser } from "../utils/mediaConverter.js";
 
 const channelId = -1003702275192;
+
+async function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withTimeout(promise, timeoutMs, timeoutMessage) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function readMetadataSafely(photo, mediaType) {
+  // EXIF for videos/audios can be slow and is not required to complete upload.
+  if (mediaType !== "image") {
+    return {};
+  }
+
+  try {
+    return await withTimeout(
+      exiftool.read(photo.path),
+      8000,
+      "metadata read timeout",
+    );
+  } catch (error) {
+    console.log("Metadata read skipped:", error?.message || error);
+    return {};
+  }
+}
+
+async function sendFileWithRetry(payload, maxAttempts = 3) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await ensureTelegramConnected();
+      return await client.sendFile(channelId, payload);
+    } catch (error) {
+      lastError = error;
+      const isLastAttempt = attempt === maxAttempts;
+      console.log(
+        `Telegram upload attempt ${attempt}/${maxAttempts} failed:`,
+        error?.message || error,
+      );
+
+      if (!isLastAttempt) {
+        await wait(1000 * attempt);
+      }
+    }
+  }
+
+  throw lastError;
+}
 
 async function mapLimit(items, limit, worker) {
   const results = new Array(items.length);
@@ -33,13 +94,14 @@ async function processSinglePhoto(photo) {
   const start = Date.now();
   const uniqueId = nanoid();
   let cleanupPaths = [photo.path];
+  const mediaType = photo.mimetype?.split("/")?.[0] || "";
 
   try {
-    const tags = await exiftool.read(photo.path);
+    const tags = await readMetadataSafely(photo, mediaType);
     const normalized = await normalizeMediaForBrowser(photo);
     cleanupPaths = normalized.cleanupPaths;
 
-    const result = await client.sendFile(channelId, {
+    const result = await sendFileWithRetry({
       file: normalized.path,
       fileName: normalized.fileName,
       mimeType: normalized.mimeType,

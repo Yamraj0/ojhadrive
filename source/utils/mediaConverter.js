@@ -27,6 +27,15 @@ const SUPPORTED_IMAGE_PASSTHROUGH = new Set([
   "image/jpg",
 ]);
 
+const SUPPORTED_VIDEO_PASSTHROUGH = new Set([
+  "video/mp4",
+]);
+
+const SUPPORTED_AUDIO_PASSTHROUGH = new Set([
+  "audio/mpeg",
+  "audio/mp3",
+]);
+
 const HEIC_MIME_TYPES = new Set([
   "image/heic",
   "image/heif",
@@ -101,24 +110,36 @@ async function convertImage(inputPath, inputMime) {
   };
 }
 
-async function convertVideo(inputPath) {
+async function convertVideo(inputPath, inputMime) {
+  if (SUPPORTED_VIDEO_PASSTHROUGH.has(inputMime)) {
+    return {
+      outputPath: inputPath,
+      outputMime: VIDEO_OUTPUT_MIME,
+      converted: false,
+    };
+  }
+
   const outputPath = getOutputPath(inputPath, "browser", VIDEO_EXT);
 
-  await runFfmpeg(inputPath, outputPath, (command) => {
-    command
-      .outputOptions([
-        "-c:v libx264",
-        "-preset medium",
-        "-crf 18",
-        "-pix_fmt yuv420p",
-        "-c:a aac",
-        "-b:a 192k",
-        "-movflags +faststart",
-        "-map 0:v:0",
-        "-map 0:a?",
-      ])
-      .format("mp4");
-  });
+  try {
+    await runFfmpeg(inputPath, outputPath, (command) => {
+      command
+        .outputOptions([
+          "-c:v libx264",
+          "-preset veryfast",
+          "-crf 22",
+          "-pix_fmt yuv420p",
+          "-c:a aac",
+          "-b:a 160k",
+          "-movflags +faststart",
+          "-map 0:v:0",
+          "-map 0:a?",
+        ])
+        .format("mp4");
+    });
+  } catch (error) {
+    throw new Error(`Video conversion failed: ${compactErrorMessage(error)}`);
+  }
 
   return {
     outputPath,
@@ -127,18 +148,30 @@ async function convertVideo(inputPath) {
   };
 }
 
-async function convertAudio(inputPath) {
+async function convertAudio(inputPath, inputMime) {
+  if (SUPPORTED_AUDIO_PASSTHROUGH.has(inputMime)) {
+    return {
+      outputPath: inputPath,
+      outputMime: AUDIO_OUTPUT_MIME,
+      converted: false,
+    };
+  }
+
   const outputPath = getOutputPath(inputPath, "browser", AUDIO_EXT);
 
-  await runFfmpeg(inputPath, outputPath, (command) => {
-    command
-      .outputOptions([
-        "-c:a libmp3lame",
-        "-q:a 2",
-        "-map 0:a:0",
-      ])
-      .format("mp3");
-  });
+  try {
+    await runFfmpeg(inputPath, outputPath, (command) => {
+      command
+        .outputOptions([
+          "-c:a libmp3lame",
+          "-q:a 2",
+          "-map 0:a:0",
+        ])
+        .format("mp3");
+    });
+  } catch (error) {
+    throw new Error(`Audio conversion failed: ${compactErrorMessage(error)}`);
+  }
 
   return {
     outputPath,
@@ -174,9 +207,9 @@ export async function normalizeMediaForBrowser(file) {
   if (mediaType === "image") {
     conversion = await convertImage(file.path, originalMime);
   } else if (mediaType === "video") {
-    conversion = await convertVideo(file.path);
+    conversion = await convertVideo(file.path, originalMime);
   } else {
-    conversion = await convertAudio(file.path);
+    conversion = await convertAudio(file.path, originalMime);
   }
 
   const convertedStat = await fs.stat(conversion.outputPath);
