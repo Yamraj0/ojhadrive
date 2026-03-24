@@ -35,6 +35,26 @@ const photoSchema = new mongoose.Schema({
     photoHash: String,
     photoStream: String,
     photoDownload: String,
+    originalMime: String,
+    convertedMime: String,
+    originalSize: String,
+    convertedSize: String,
+    conversionStatus: {
+        type: String,
+        default: "",
+    },
+    conversionError: {
+        type: String,
+        default: "",
+    },
+    conversionTimeMs: {
+        type: String,
+        default: "",
+    },
+    mediaType: {
+        type: String,
+        default: "",
+    },
 },{timestamps: true})
 
 export default mongoose.model("Photo", photoSchema)

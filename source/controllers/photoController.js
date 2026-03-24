@@ -3,6 +3,7 @@ import photoModel from "../models/photoModel.js";
 import { client } from "../config/telegram.js";
 import fs from "fs/promises";
 import { nanoid } from "nanoid";
+import { normalizeMediaForBrowser } from "../utils/mediaConverter.js";
 
 const channelId = -1003702275192;
 
@@ -14,7 +15,12 @@ async function mapLimit(items, limit, worker) {
     async () => {
       while (nextIndex < items.length) {
         const currentIndex = nextIndex++;
-        results[currentIndex] = await worker(items[currentIndex]);
+        try {
+          results[currentIndex] = await worker(items[currentIndex]);
+        } catch (error) {
+          console.log("Single media processing failed:", error?.message || error);
+          results[currentIndex] = null;
+        }
       }
     },
   );
@@ -24,74 +30,112 @@ async function mapLimit(items, limit, worker) {
 }
 
 async function processSinglePhoto(photo) {
-  const tags = await exiftool.read(photo.path);
-
+  const start = Date.now();
   const uniqueId = nanoid();
- 
-  const result = await client.sendFile(channelId, {
-    file: photo.path,
-    fileName: photo.originalname,
-    mimeType: photo.mimetype,
-    forceDocument: true,
-    caption: `ref=${uniqueId}`,
-  });
+  let cleanupPaths = [photo.path];
+
+  try {
+    const tags = await exiftool.read(photo.path);
+    const normalized = await normalizeMediaForBrowser(photo);
+    cleanupPaths = normalized.cleanupPaths;
+
+    const result = await client.sendFile(channelId, {
+      file: normalized.path,
+      fileName: normalized.fileName,
+      mimeType: normalized.mimeType,
+      forceDocument: true,
+      caption: `ref=${uniqueId}`,
+    });
 
   
 
-  const dateTag = tags.DateTimeOriginal || tags.CreateDate || tags.ModifyDate;
-  let photoDate = {
-    year: "",
-    month: "",
-    day: "",
-    hour: "",
-    minute: "",
-    second: "",
-  };
+    const dateTag = tags.DateTimeOriginal || tags.CreateDate || tags.ModifyDate;
+    let photoDate = {
+      year: "",
+      month: "",
+      day: "",
+      hour: "",
+      minute: "",
+      second: "",
+    };
 
-  if (dateTag) {
-    const normalized =
-      typeof dateTag === "string"
-        ? new Date(
-            String(dateTag).replace(
-              /^(\d{4}):(\d{2}):(\d{2})/,
-              "$1-$2-$3",
-            ),
-          )
-        : new Date(dateTag);
+    if (dateTag) {
+      const normalizedDate =
+        typeof dateTag === "string"
+          ? new Date(
+              String(dateTag).replace(
+                /^(\d{4}):(\d{2}):(\d{2})/,
+                "$1-$2-$3",
+              ),
+            )
+          : new Date(dateTag);
 
-    if (!Number.isNaN(normalized.getTime())) {
-      photoDate = {
-        year: String(normalized.getFullYear()),
-        month: String(normalized.getMonth() + 1),
-        day: String(normalized.getDate()),
-        hour: String(normalized.getHours()),
-        minute: String(normalized.getMinutes()),
-        second: String(normalized.getSeconds()),
-      };
+      if (!Number.isNaN(normalizedDate.getTime())) {
+        photoDate = {
+          year: String(normalizedDate.getFullYear()),
+          month: String(normalizedDate.getMonth() + 1),
+          day: String(normalizedDate.getDate()),
+          hour: String(normalizedDate.getHours()),
+          minute: String(normalizedDate.getMinutes()),
+          second: String(normalizedDate.getSeconds()),
+        };
+      }
     }
+
+    const photoData = await photoModel.create({
+      id: result.id,
+      photoId: uniqueId,
+      photoName: normalized.fileName,
+      photoDevice: tags.Make || "",
+      photoModel: tags.Model || tags.ModelName || "",
+      photoSoftware: tags.Software || "",
+      photoExposureTime: tags.ExposureTime || "",
+      photoFocal: tags.FocalLength || "",
+      photoIso: tags.ISO || "",
+      photoLatitude: tags.GPSLatitude || "",
+      photoLongitude: tags.GPSLongitude || "",
+      photoZone: tags.Zone || "",
+      photoMegapixels: tags.Megapixels || "",
+      photoSize: normalized.convertedSize || tags.FileSize || "",
+      originalMime: normalized.originalMime,
+      convertedMime: normalized.convertedMime,
+      originalSize: normalized.originalSize,
+      convertedSize: normalized.convertedSize,
+      conversionStatus: normalized.converted ? "converted" : "passthrough",
+      conversionError: "",
+      conversionTimeMs: String(Date.now() - start),
+      mediaType: normalized.mediaType,
+      photoDate,
+    });
+
+    return photoData;
+  } catch (error) {
+    await photoModel.create({
+      photoId: uniqueId,
+      photoName: photo.originalname,
+      originalMime: photo.mimetype || "",
+      convertedMime: "",
+      originalSize: "",
+      convertedSize: "",
+      conversionStatus: "failed",
+      conversionError: error?.message || "unknown conversion error",
+      conversionTimeMs: String(Date.now() - start),
+      mediaType: photo.mimetype?.split("/")?.[0] || "",
+      photoDate: {
+        year: "",
+        month: "",
+        day: "",
+        hour: "",
+        minute: "",
+        second: "",
+      },
+    }).catch(() => {});
+    throw error;
+  } finally {
+    await Promise.all(
+      cleanupPaths.map((filePath) => fs.unlink(filePath).catch(() => {})),
+    );
   }
-
-  const photoData = await photoModel.create({
-    id: result.id,
-    photoId: uniqueId,
-    photoName: photo.originalname,
-    photoDevice: tags.Make || "",
-    photoModel: tags.Model || "",
-    photoSoftware: tags.Software || "",
-    photoExposureTime: tags.ExposureTime || "",
-    photoFocal: tags.FocalLength || "",
-    photoIso: tags.ISO || "",
-    photoLatitude: tags.GPSLatitude || "",
-    photoLongitude: tags.GPSLongitude || "",
-    photoZone: tags.Zone || "",
-    photoMegapixels: tags.Megapixels || "",
-    photoSize: tags.FileSize || "",
-    photoDate,
-  });  
-
-  // Free disk space: multer saved to disk; once processed, delete it.
-  await fs.unlink(photo.path).catch(() => {});
-  return photoData;
 }
 
 export const uploadPhoto = async (req, res) => {
@@ -116,13 +160,14 @@ export const uploadPhoto = async (req, res) => {
         CONCURRENCY,
         processSinglePhoto,
       );
-      console.log(`Processed ${uploadPhotos.length} photos`);
+      const successCount = uploadPhotos.filter(Boolean).length;
+      const failedCount = uploadPhotos.length - successCount;
+      console.log(`Processed media files: success=${successCount}, failed=${failedCount}`);
     } catch (error) {
       console.log("Photo processing failed:", error);
     }
   })();
 };
-
 
 export const getAllPhotos = async (req, res) => {
   try {
