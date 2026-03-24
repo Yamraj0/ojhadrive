@@ -4,6 +4,7 @@ import sharp from "sharp";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 import ffprobe from "ffprobe-static";
+import heicConvert from "heic-convert";
 
 if (ffmpegPath) {
   ffmpeg.setFfmpegPath(ffmpegPath);
@@ -25,6 +26,23 @@ const SUPPORTED_IMAGE_PASSTHROUGH = new Set([
   "image/jpeg",
   "image/jpg",
 ]);
+
+const HEIC_MIME_TYPES = new Set([
+  "image/heic",
+  "image/heif",
+  "image/heic-sequence",
+  "image/heif-sequence",
+]);
+
+function isHeicLike(inputPath, inputMime) {
+  const ext = path.extname(inputPath || "").toLowerCase();
+  return HEIC_MIME_TYPES.has(inputMime) || ext === ".heic" || ext === ".heif";
+}
+
+function compactErrorMessage(error) {
+  const raw = error?.message || String(error || "unknown error");
+  return raw.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 2).join(" | ");
+}
 
 function getOutputPath(inputPath, suffix, ext) {
   const parsed = path.parse(inputPath);
@@ -54,12 +72,27 @@ async function convertImage(inputPath, inputMime) {
 
   const outputPath = getOutputPath(inputPath, "browser", IMAGE_EXT);
 
-  await sharp(inputPath)
-    .rotate()
-    .flatten({ background: "#ffffff" })
-    .jpeg({ quality: 96, mozjpeg: true, progressive: true, chromaSubsampling: "4:4:4" })
-    .withMetadata()
-    .toFile(outputPath);
+  try {
+    if (isHeicLike(inputPath, inputMime)) {
+      const inputBuffer = await fs.readFile(inputPath);
+      const convertedBuffer = await heicConvert({
+        buffer: inputBuffer,
+        format: "JPEG",
+        quality: 1,
+      });
+
+      await fs.writeFile(outputPath, Buffer.from(convertedBuffer));
+    } else {
+      await sharp(inputPath)
+        .rotate()
+        .flatten({ background: "#ffffff" })
+        .jpeg({ quality: 96, mozjpeg: true, progressive: true, chromaSubsampling: "4:4:4" })
+        .withMetadata()
+        .toFile(outputPath);
+    }
+  } catch (error) {
+    throw new Error(`Image conversion failed (${inputMime || "unknown"}): ${compactErrorMessage(error)}`);
+  }
 
   return {
     outputPath,
