@@ -2,6 +2,7 @@ import { exiftool } from "exiftool-vendored";
 import photoModel from "../models/photoModel.js";
 import { client } from "../config/telegram.js";
 import fs from "fs/promises";
+import { nanoid } from "nanoid";
 
 const channelId = -1003702275192;
 
@@ -24,22 +25,18 @@ async function mapLimit(items, limit, worker) {
 
 async function processSinglePhoto(photo) {
   const tags = await exiftool.read(photo.path);
+
+  const uniqueId = nanoid();
  
   const result = await client.sendFile(channelId, {
     file: photo.path,
     fileName: photo.originalname,
     mimeType: photo.mimetype,
     forceDocument: true,
-    caption: `ref=${photo.originalname}`,
+    caption: `ref=${uniqueId}`,
   });
 
-  // Prefer document id when available; fallback to photo id.
-  let id = "";
-  if (result?.media?.document?.id) {
-    id = result.media.document.id.value.toString();
-  } else if (result?.media?.photo?.id) {
-    id = result.media.photo.id.value.toString();
-  }
+  
 
   const dateTag = tags.DateTimeOriginal || tags.CreateDate || tags.ModifyDate;
   let photoDate = {
@@ -76,7 +73,7 @@ async function processSinglePhoto(photo) {
 
   const photoData = await photoModel.create({
     id: result.id,
-    photoId: id,
+    PhotoId: uniqueId,
     photoName: photo.originalname,
     photoDevice: tags.Make || "",
     photoModel: tags.Model || "",
