@@ -73,7 +73,7 @@ async function processSinglePhoto(photo) {
 
   const photoData = await photoModel.create({
     id: result.id,
-    PhotoId: uniqueId,
+    photoId: uniqueId,
     photoName: photo.originalname,
     photoDevice: tags.Make || "",
     photoModel: tags.Model || "",

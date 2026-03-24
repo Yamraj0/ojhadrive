@@ -10,7 +10,7 @@ filesRoutes.post("/uploaded", async (req, res) => {
   try {
 
     const fileId = data.backend_file_id;
-    
+
       if (!fileId) {
         console.log("File Id is Not found");
       }
@@ -22,11 +22,11 @@ filesRoutes.post("/uploaded", async (req, res) => {
         console.log("No photo Found by id");
       }
 
-      isPhoto.photoMId = data.message_id || "";
-      isPhoto.photoMime = data.mime_type || "";
-      isPhoto.photoHash = data.hash || "";
-      isPhoto.photoStream = data.stream_url || "";
-      isPhoto.photoDownload = data.download_url || "";
+      isPhoto.photoMId = data.message_id;
+      isPhoto.photoMime = data.mime_type;
+      isPhoto.photoHash = data.hash;
+      isPhoto.photoStream = data.stream_url;
+      isPhoto.photoDownload = data.download_url;
 
       const photo = await isPhoto.save();
       console.log(photo);
